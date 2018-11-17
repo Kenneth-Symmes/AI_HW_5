@@ -134,8 +134,8 @@ class AIPlayer(Player):
             self.myAnthill=(getConstrList(currentState, me, (ANTHILL,))[0]).coords
             self.enemyAnthill=(getConstrList(currentState, 1-me, (ANTHILL,))[0]).coords
             self.enemyTunnel=(getConstrList(currentState, 1-me, (TUNNEL,))[0]).coords
-        netUtil=self.getNetUtil(currentState)
         startUtil=self.getUtil(currentState)
+        self.getNetUtil(currentState,startUtil)
         #print(str(startUtil))
         root=Node(currentState,None,None,startUtil)
         ourNode=root
@@ -144,7 +144,7 @@ class AIPlayer(Player):
         self.findHighest(root,highest) #finds best end state
         #print(str(highest[1]))
         return highest[0]
-
+      
     def getNetUtil(self,currentState,initUtil):
         self.setInputs(currentState)
         self.backpropigation(initUtil)
@@ -261,7 +261,7 @@ class AIPlayer(Player):
             input_sums.append(sum)
             outputs.append(self.sigmoid(sum))
         sum = 0
-        for i in range(0, self.hidden_nodes)
+        for i in range(0, self.hidden_nodes):
             sum += outputs * self.weights[-1][i]
         sum += self.weights[-1][self.hidden_nodes]
         outputs.append(self.sigmoid(sum))
@@ -316,7 +316,7 @@ class AIPlayer(Player):
 
     def grow(self,temp,depth2):
         #print("here")
-        if(depth2==self.depth):
+        if(depth2==self.depth): 
             return 0
         if(temp.parent!=None): #if this was a bad move, don't epand it
             if(temp.util<temp.parent.util):
@@ -324,9 +324,11 @@ class AIPlayer(Player):
         moves=listAllLegalMoves(temp.state)
         for move in moves: #check all possible moves utility
             newState=getNextState(temp.state,move)
-            newNode=Node(newState,temp,move,self.getUtil(newState))
+            tempForTraining=self.getUtil(newState)
+            self.getNetUtil(newState,tempForTraining)
+            newNode=Node(newState,temp,move,tempForTraining)
             temp.addChild(newNode)
-            self.grow(newNode,depth2+1)
+            self.grow(newNode,depth2+1)      
 
     def findHighest(self,tempNode,highest):
         if(len(tempNode.children)>0): #if this isn't in the fringe, keep going

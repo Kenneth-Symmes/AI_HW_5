@@ -38,8 +38,8 @@ class AIPlayer(Player):
     #   inputPlayerId - The id to give the new player (int)
     #   cpy           - whether the player is a copy (when playing itself)
     ##
-    
-    
+
+
     def __init__(self, inputPlayerId):
         super(AIPlayer, self).__init__(inputPlayerId, "NeutralNet1")
         #the coordinates of the agent's food and tunnel will be stored in these
@@ -51,24 +51,27 @@ class AIPlayer(Player):
         self.enemyAnthill=None
         self.enemyTunnel=None
         self.depth=2
+        self.num_inputs = 23
+        self.hidden_nodes = int((self.num_inputs) * (2/3))
+
         self.inputs=[]
-        for i in range(0,22):
+        for i in range(0,self.num_inputs):
             self.inputs.append(0)
+
         self.weights=[]
-        
-        for i in range(0,14):
+        for i in range(0,self.hidden_nodes):
             temp=[]
-            for j in range(0,23):
+            for j in range(0,self.num_inputs):
                 temp.append(random.uniform(-1,1))
             self.weights.append(temp)
-            
+
         self.weights.append([]);
-        for i in range(0,15):
-            self.weights[14].append(random.uniform(-1,1))
-                
-    
+        for i in range(0,self.hidden_nodes):
+            self.weights[self.hidden_nodes-1].append(random.uniform(-1,1))
+
+
     ##
-    #getPlacement 
+    #getPlacement
     #
     # The agent uses a hardcoded arrangement for phase 1 to provide maximum
     # protection to the queen.  Enemy food is placed randomly.
@@ -110,9 +113,9 @@ class AIPlayer(Player):
                         currentState.board[x][y].constr == True
                 moves.append(move)
             return moves
-        else:            
+        else:
             return None  #should never happen
-    
+
     ##
     #getMove
     #
@@ -136,7 +139,7 @@ class AIPlayer(Player):
         root=Node(currentState,None,None,startUtil)
         ourNode=root
         self.grow(root,0) #makes tree of possible states
-        highest=[Move(END,None,None),startUtil] 
+        highest=[Move(END,None,None),startUtil]
         self.findHighest(root,highest) #finds best end state
         #print(str(highest[1]))
         return highest[0]
@@ -174,13 +177,29 @@ class AIPlayer(Player):
         self.inputs[5]=len(enemyWorkers)/100 #number of enemyWorkers 0-1
         self.inputs[6]=len(myArmyS)/100 #size of our Army
         self.inputs[7]=
-        
-            
-        
+
+
+    def propigate(self):
+        outputs = []
+        for i in range(0,self.hidden_nodes):
+            node = self.weights[i]
+            sum = 0
+            for j in range(0, self.num_inputs):
+                sum = self.inputs[j] * node[j]
+            outputs.append(self.sigmoid(sum))
+        sum = 0
+        for num in outputs
+            sum += outputs
+        outputs.append(self.sigmoid(sum))
+        return outputs[-1]
+
+
+    def sigmoid(self, x):
+        return (1 / (1 + math.e ** (-1 * x)))
 
     def grow(self,temp,depth2):
         #print("here")
-        if(depth2==self.depth): 
+        if(depth2==self.depth):
             return 0
         if(temp.parent!=None): #if this was a bad move, don't epand it
             if(temp.util<temp.parent.util):
@@ -190,13 +209,13 @@ class AIPlayer(Player):
             newState=getNextState(temp.state,move)
             newNode=Node(newState,temp,move,self.getUtil(newState))
             temp.addChild(newNode)
-            self.grow(newNode,depth2+1)       
+            self.grow(newNode,depth2+1)
 
     def findHighest(self,tempNode,highest):
         if(len(tempNode.children)>0): #if this isn't in the fringe, keep going
             for child in tempNode.children:
                 self.findHighest(child,highest)
-        else: 
+        else:
             if(tempNode.util>highest[1]): #see if this is better than our best
                 highest[1]=tempNode.util
                 last=tempNode
@@ -205,7 +224,7 @@ class AIPlayer(Player):
                     last=cur
                     cur=cur.parent
                 highest[0]=last.move
-                              
+
     def getUtil(self,cur):
         if(random.randint(0,10000)==0): #randomly can say this is a good move
             return 1.0
@@ -298,7 +317,7 @@ class AIPlayer(Player):
     #
     def getAttack(self, currentState, attackingAnt, enemyLocations):
         return enemyLocations[0]  #don't care
-        
+
     ##
     #registerWin
     #

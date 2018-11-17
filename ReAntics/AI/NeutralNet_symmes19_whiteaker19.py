@@ -52,7 +52,7 @@ class AIPlayer(Player):
         self.enemyTunnel=None
         self.depth=2
         self.learning_rate = 0.5
-        self.num_inputs = 23
+        self.num_inputs = 25
         self.hidden_nodes = int((self.num_inputs) * (2/3))
 
         self.inputs=[]

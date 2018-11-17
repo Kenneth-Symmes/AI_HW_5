@@ -51,6 +51,7 @@ class AIPlayer(Player):
         self.enemyAnthill=None
         self.enemyTunnel=None
         self.depth=2
+        self.learning_rate = 0.5
         self.num_inputs = 23
         self.hidden_nodes = int((self.num_inputs) * (2/3))
 
@@ -66,8 +67,8 @@ class AIPlayer(Player):
             self.weights.append(temp)
 
         self.weights.append([]);
-        for i in range(0,self.hidden_nodes):
-            self.weights[self.hidden_nodes-1].append(random.uniform(-1,1))
+        for i in range(0,self.hidden_nodes + 1):
+            self.weights[self.hidden_nodes].append(random.uniform(-1,1))
 
 
     ##
@@ -181,21 +182,68 @@ class AIPlayer(Player):
 
     def propigate(self):
         outputs = []
+        input_sums = []
         for i in range(0,self.hidden_nodes):
             node = self.weights[i]
             sum = 0
             for j in range(0, self.num_inputs):
-                sum = self.inputs[j] * node[j]
+                sum += self.inputs[j] * node[j]
+            sum += self.weights[i][self.num_inputs]
+            input_sums.append(sum)
             outputs.append(self.sigmoid(sum))
         sum = 0
-        for num in outputs
-            sum += outputs
+        for i in range(0, self.hidden_nodes)
+            sum += outputs * self.weights[-1][i]
+        sum += self.weights[-1][self.hidden_nodes]
         outputs.append(self.sigmoid(sum))
-        return outputs[-1]
+        input_sums.append(sum)
+        return (outputs, input_sums)
 
 
     def sigmoid(self, x):
         return (1 / (1 + math.e ** (-1 * x)))
+
+    def dsigmoid(self, x):
+        return self.sigmoid(x)*(1-self.sigmoid(x))
+
+    def backpropigation(self, eval):
+        p = self.propigate()
+        all_outputs = p[0]
+        all_sums = p[1]
+
+        # calculate the error and error term for the output
+        output_error = eval - all_outputs[-1]
+        print("output error: " + str(output_error))
+        output_error_term = output_error * self.dsigmoid(all_sums[-1])
+
+        error_terms = []
+
+        # calculate the error and error term for each hidden Node
+        for i in range(0, self.hidden_nodes):
+            node_error = output_error_term * self.weights[-1][i]
+            node_error_term = node_error * self.dsigmoid(all_sums[-1])*self.sigmoid(all_sums[i])
+            self.weights[-1][i] += self.learning_rate*node_error_term
+            error_terms.append(node_error_term)
+
+        # adjust the bias on the output node
+        node_error = output_error_term * self.weights[-1][self.hidden_nodes]
+        node_error_term = node_error * self.dsigmoid(all_sums[-1])
+        self.weights[-1][self.hidden_nodes] += self.learning_rate*node_error_term
+
+        for i in range(0, self.hidden_nodes):
+            for j in range(0, self.num_inputs):
+                node_error = error_terms[i] * self.weights[i][j]
+                node_error_term = node_error * self.dsigmoid(all_sums[i])
+                self.weights[i][j] += self.learning_rate*node_error_term*self.inputs[j]
+            # adjust the bias
+            node_error = error_terms[i] * self.weights[i][self.num_inputs]
+            node_error_term = node_error * self.dsigmoid(all_sums[i])
+            self.weights[i][self.num_inputs] += self.learning_rate*node_error_term
+
+
+
+
+
 
     def grow(self,temp,depth2):
         #print("here")

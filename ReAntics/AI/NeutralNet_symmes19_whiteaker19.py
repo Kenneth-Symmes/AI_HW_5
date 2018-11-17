@@ -145,8 +145,9 @@ class AIPlayer(Player):
         #print(str(highest[1]))
         return highest[0]
 
-    def getNetUtil(self,currentState):
+    def getNetUtil(self,currentState,initUtil):
         self.setInputs(currentState)
+        self.backpropigation(initUtil)
 
     def setInputs(self,cur):
         me=cur.whoseTurn
@@ -156,6 +157,7 @@ class AIPlayer(Player):
         enemyQueen=getAntList(cur,1-me,(QUEEN,))
         enemyWorkers=getAntList(cur,1-me,(WORKER,))
         myQueen=getAntList(cur,me,(QUEEN,))[0]
+        myArmy=getAntList(cur, me, (SOLDIER,R_SOLDIER))
         myArmyS=getAntList(cur, me, (SOLDIER,))
         myArmyR=getAntList(cur, me, (R_SOLDIER,))
         enemyArmy=getAntList(cur,1-me,(DRONE,SOLDIER,R_SOLDIER))
@@ -176,8 +178,75 @@ class AIPlayer(Player):
         else:
             self.inputs[4]=0
         self.inputs[5]=len(enemyWorkers)/100 #number of enemyWorkers 0-1
-        self.inputs[6]=len(myArmyS)/100 #size of our Army
-        self.inputs[7]=
+        self.inputs[6]=len(myArmyS)/100 #number of Soldiers
+        self.inputs[7]=len(myArmyR)/100 #number of RSoldiers
+        self.inputs[8]=abs(len(myArmyS)-len(myArmyR))/100 #Diff of R and S soldiers
+        #these next 5 are soldier stats
+        self.inputs[9]=0 #health
+        self.inputs[18]=0 #attack
+        self.inputs[19]=0 #movement Ability
+        self.inputs[20]=0 #range
+        self.inputs[21]=0 #cost
+
+        self.inputs[11]=0 #1 if soldier is on enemyAnthill
+        self.inputs[12]=0 #Total soldier distance to enemy Anthill (1 if none of this type)
+        self.inputs[13]=0 #Total ranged soldier distance to enemy Tunnel (1 if none of this type)
+        if(len(myArmyS)==0):
+            self.inputs[12]=1
+        if(len(myArmyR)==0):
+            self.inputs[13]=1
+        for w in myArmy:
+            self.inputs[9]+=w.health/500
+            self.inputs[18]+=UNIT_STATS[w.type][2]/200
+            self.inputs[19]+=UNIT_STATS[w.type][0]/200
+            self.inputs[20]+=UNIT_STATS[w.type][3]/200
+            self.inputs[21]+=UNIT_STATS[w.type][4]/200
+            
+            if(w.coords==self.enemyAnthill):
+                self.inputs[11]=1;
+            if(w.type==SOLDIER):
+                self.inputs[12]+=approxDist(w.coords,self.enemyAnthill)
+            elif(w.type==R_SOLDIER):
+                self.inputs[13]+=approxDist(w.coords,self.enemyTunnel)
+            
+        self.inputs[10]=0 #same as 9,18,19,20,21 but for enemy
+        self.inputs[22]=0
+        self.inputs[23]=0
+        self.inputs[24]=0
+        self.inputs[25]=0
+        for w in enemyArmy:
+            self.inputs[10]+=w.health/500
+            self.inputs[22]+=UNIT_STATS[w.type][2]/200
+            self.inputs[23]+=UNIT_STATS[w.type][0]/200
+            self.inputs[24]+=UNIT_STATS[w.type][3]/200
+            self.inputs[25]+=UNIT_STATS[w.type][4]/200
+
+        self.inputs[14]=0 #number of workers carrying Food
+        self.inputs[15]=0 #total worker distance to their destinations
+        for w in workers:
+            if(w.carrying):
+                self.inputs[14]+=0.01
+                close=approxDist(w.coords,self.myAnthill)
+                close2=approxDist(w.coords,self.myTunnel)
+                if(close2<close):
+                    close=close2
+                self.inputs[15]+=close
+            else:
+                close=approxDist(w.coords,self.myFood[0])
+                close2=approxDist(w.coords,self.myFood[1])
+                if(close2<close):
+                    close=close2
+                self.inputs[15]+=close
+        self.inputs[16]=0 #number of ants covering things up
+        if(getAntAt(cur,self.myAnthill)!=None):
+            self.inputs[16]+=1
+        if(getAntAt(cur,self.myTunnel)!=None):
+            self.inputs[16]+=1
+        if(getAntAt(cur,self.myFood[0])!=None):
+            self.inputs[16]+=1
+        if(getAntAt(cur,self.myFood[1])!=None):
+            self.inputs[16]+=1
+        self.inputs[17]=(self.workersWanted-abs(len(workers)-self.workersWanted))/10 #number of workers strayed from self.workersWanted
 
 
     def propigate(self):
@@ -372,5 +441,13 @@ class AIPlayer(Player):
     # This agent doens't learn
     #
     def registerWin(self, hasWon):
-        #method templaste, not implemented
-        pass
+        self.printWeights()
+
+    def printWeights(self):
+        print("Printing Weights:")
+        for weightL in self.weights:
+            toPrint=""
+            for indWeight in weightL:
+                toPrint=toPrint+","+str(indWeight)
+            print(toPrint)
+        print("")

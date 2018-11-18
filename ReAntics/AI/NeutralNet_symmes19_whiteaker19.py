@@ -9,6 +9,7 @@ from Ant import UNIT_STATS
 from Move import Move
 from GameState import addCoords
 from AIPlayerUtils import *
+import math
 
 class Node:
     def __init__(self,initState,parentNode,moveToGetHere,utility):
@@ -51,10 +52,10 @@ class AIPlayer(Player):
         self.enemyAnthill=None
         self.enemyTunnel=None
         self.depth=2
-        self.learning_rate = 0.5
-        self.num_inputs = 25
+        self.learning_rate = 0.2
+        self.num_inputs = 26
         self.hidden_nodes = int((self.num_inputs) * (2/3))
-
+        self.ticks = 0
         self.inputs=[]
         for i in range(0,self.num_inputs):
             self.inputs.append(0)
@@ -62,13 +63,14 @@ class AIPlayer(Player):
         self.weights=[]
         for i in range(0,self.hidden_nodes):
             temp=[]
-            for j in range(0,self.num_inputs):
+            for j in range(0,self.num_inputs+1):
                 temp.append(random.uniform(-1,1))
             self.weights.append(temp)
 
-        self.weights.append([]);
+        temp=[]
         for i in range(0,self.hidden_nodes + 1):
-            self.weights[self.hidden_nodes].append(random.uniform(-1,1))
+            temp.append(random.uniform(-1,1))
+        self.weights.append(temp)
 
 
     ##
@@ -144,7 +146,7 @@ class AIPlayer(Player):
         self.findHighest(root,highest) #finds best end state
         #print(str(highest[1]))
         return highest[0]
-      
+
     def getNetUtil(self,currentState,initUtil):
         self.setInputs(currentState)
         self.backpropigation(initUtil)
@@ -173,8 +175,8 @@ class AIPlayer(Player):
         self.inputs[1]=eInv.foodCount/11; #enemyFoodCount 0-1
         self.inputs[2]=myQueen.coords[1]/3; #ourQueenPos, 0,.33,.67, or 1
         self.inputs[3]=len(enemyQueen) #0 or 1 enemyQueen
-        if(len(enemyQueen!=0)):
-            self.inputs[4]=enemyQueen[0].health/8 #enemyQueenHealth 0-1
+        if(len(enemyQueen)!=0):
+            self.inputs[4]=enemyQueen[0].health/10 #enemyQueenHealth 0-1
         else:
             self.inputs[4]=0
         self.inputs[5]=len(enemyWorkers)/100 #number of enemyWorkers 0-1
@@ -201,14 +203,14 @@ class AIPlayer(Player):
             self.inputs[19]+=UNIT_STATS[w.type][0]/200
             self.inputs[20]+=UNIT_STATS[w.type][3]/200
             self.inputs[21]+=UNIT_STATS[w.type][4]/200
-            
+
             if(w.coords==self.enemyAnthill):
                 self.inputs[11]=1;
             if(w.type==SOLDIER):
-                self.inputs[12]+=approxDist(w.coords,self.enemyAnthill)
+                self.inputs[12]+=approxDist(w.coords,self.enemyAnthill)/1000
             elif(w.type==R_SOLDIER):
-                self.inputs[13]+=approxDist(w.coords,self.enemyTunnel)
-            
+                self.inputs[13]+=approxDist(w.coords,self.enemyTunnel)/1000
+
         self.inputs[10]=0 #same as 9,18,19,20,21 but for enemy
         self.inputs[22]=0
         self.inputs[23]=0
@@ -230,23 +232,27 @@ class AIPlayer(Player):
                 close2=approxDist(w.coords,self.myTunnel)
                 if(close2<close):
                     close=close2
-                self.inputs[15]+=close
+                self.inputs[15]+=close/200
             else:
                 close=approxDist(w.coords,self.myFood[0])
                 close2=approxDist(w.coords,self.myFood[1])
                 if(close2<close):
                     close=close2
-                self.inputs[15]+=close
+                self.inputs[15]+=close/200
         self.inputs[16]=0 #number of ants covering things up
         if(getAntAt(cur,self.myAnthill)!=None):
-            self.inputs[16]+=1
+            self.inputs[16]+=.25
         if(getAntAt(cur,self.myTunnel)!=None):
-            self.inputs[16]+=1
+            self.inputs[16]+=.25
         if(getAntAt(cur,self.myFood[0])!=None):
-            self.inputs[16]+=1
+            self.inputs[16]+=.25
         if(getAntAt(cur,self.myFood[1])!=None):
-            self.inputs[16]+=1
+            self.inputs[16]+=.25
         self.inputs[17]=(self.workersWanted-abs(len(workers)-self.workersWanted))/10 #number of workers strayed from self.workersWanted
+        for i in range(0, 26):
+            if self.inputs[i] < -1 or self.inputs[i] > 1:
+                print(str(i) + ": " + str(self.inputs[i]))
+
 
 
     def propigate(self):
@@ -262,7 +268,7 @@ class AIPlayer(Player):
             outputs.append(self.sigmoid(sum))
         sum = 0
         for i in range(0, self.hidden_nodes):
-            sum += outputs * self.weights[-1][i]
+            sum += outputs[i] * self.weights[-1][i]
         sum += self.weights[-1][self.hidden_nodes]
         outputs.append(self.sigmoid(sum))
         input_sums.append(sum)
@@ -282,7 +288,9 @@ class AIPlayer(Player):
 
         # calculate the error and error term for the output
         output_error = eval - all_outputs[-1]
-        print("output error: " + str(output_error))
+        self.ticks += 1
+        if self.ticks % 10000 == 0:
+            print("output error: " + str(output_error))
         output_error_term = output_error * self.dsigmoid(all_sums[-1])
 
         error_terms = []
@@ -291,6 +299,7 @@ class AIPlayer(Player):
         for i in range(0, self.hidden_nodes):
             node_error = output_error_term * self.weights[-1][i]
             node_error_term = node_error * self.dsigmoid(all_sums[-1])*self.sigmoid(all_sums[i])
+            print(output_error_term)
             self.weights[-1][i] += self.learning_rate*node_error_term
             error_terms.append(node_error_term)
 
@@ -316,7 +325,7 @@ class AIPlayer(Player):
 
     def grow(self,temp,depth2):
         #print("here")
-        if(depth2==self.depth): 
+        if(depth2==self.depth):
             return 0
         if(temp.parent!=None): #if this was a bad move, don't epand it
             if(temp.util<temp.parent.util):
@@ -328,7 +337,7 @@ class AIPlayer(Player):
             self.getNetUtil(newState,tempForTraining)
             newNode=Node(newState,temp,move,tempForTraining)
             temp.addChild(newNode)
-            self.grow(newNode,depth2+1)      
+            self.grow(newNode,depth2+1)
 
     def findHighest(self,tempNode,highest):
         if(len(tempNode.children)>0): #if this isn't in the fringe, keep going
@@ -450,6 +459,12 @@ class AIPlayer(Player):
         for weightL in self.weights:
             toPrint=""
             for indWeight in weightL:
-                toPrint=toPrint+","+str(indWeight)
+                toPrint=toPrint+","+self.get3DecString(indWeight)
             print(toPrint)
         print("")
+
+    def get3DecString(self, init):
+        toRet=""
+        temp=1000*init
+        toRet=str(int(init))+"."
+        return toRet+str(int(temp%1000))

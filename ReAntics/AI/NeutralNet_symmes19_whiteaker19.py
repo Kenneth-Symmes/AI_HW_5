@@ -52,7 +52,7 @@ class AIPlayer(Player):
         self.enemyAnthill=None
         self.enemyTunnel=None
         self.depth=2
-        self.learning_rate = 0.2
+        self.learning_rate = 100
         self.num_inputs = 26
         self.hidden_nodes = int((self.num_inputs) * (2/3))
         self.ticks = 0
@@ -298,8 +298,7 @@ class AIPlayer(Player):
         # calculate the error and error term for each hidden Node
         for i in range(0, self.hidden_nodes):
             node_error = output_error_term * self.weights[-1][i]
-            node_error_term = node_error * self.dsigmoid(all_sums[-1])*self.sigmoid(all_sums[i])
-            print(output_error_term)
+            node_error_term = node_error * self.sigmoid(all_sums[i])
             self.weights[-1][i] += self.learning_rate*node_error_term
             error_terms.append(node_error_term)
 

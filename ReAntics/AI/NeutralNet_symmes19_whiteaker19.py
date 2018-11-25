@@ -10,6 +10,7 @@ from Move import Move
 from GameState import addCoords
 from AIPlayerUtils import *
 import math
+from decimal import Decimal
 
 class Node:
     def __init__(self,initState,parentNode,moveToGetHere,utility):
@@ -45,6 +46,7 @@ class AIPlayer(Player):
         super(AIPlayer, self).__init__(inputPlayerId, "NeutralNet1")
         #the coordinates of the agent's food and tunnel will be stored in these
         #variables (see getMove() below)
+        self.utilBins=[-1000000,1000000,0]; #high,low,avg
         self.myFood = None
         self.myTunnel = None
         self.myAnthill=None
@@ -52,7 +54,7 @@ class AIPlayer(Player):
         self.enemyAnthill=None
         self.enemyTunnel=None
         self.depth=2
-        self.learning_rate = 100
+        self.learning_rate = .005
         self.num_inputs = 26
         self.hidden_nodes = int((self.num_inputs) * (2/3))
         self.ticks = 0
@@ -71,6 +73,7 @@ class AIPlayer(Player):
         for i in range(0,self.hidden_nodes + 1):
             temp.append(random.uniform(-1,1))
         self.weights.append(temp)
+        self.registerWin(True)
 
 
     ##
@@ -286,17 +289,21 @@ class AIPlayer(Player):
         all_outputs = p[0]
         all_sums = p[1]
 
-        # calculate the error and error term for the output
+        # calculate the error and error term for the output 
         output_error = eval - all_outputs[-1]
         self.ticks += 1
-        if self.ticks % 10000 == 0:
-            print("output error: " + str(output_error))
+        #if self.ticks % 10000 == 0:
+        #    print("output error: " + str(output_error))
+        #if self.ticks<10:
+        #    self.registerWin(True)
         output_error_term = output_error * self.dsigmoid(all_sums[-1])
 
         error_terms = []
 
         # calculate the error and error term for each hidden Node
         for i in range(0, self.hidden_nodes):
+            #if self.ticks<1000 and i==0:
+            #    print(str(output_error_term)+" * "+str(self.weights[-1][i])+" * "+str(self.sigmoid(all_sums[i]))+" * "+str(self.learning_rate))
             node_error = output_error_term * self.weights[-1][i]
             node_error_term = node_error * self.sigmoid(all_sums[i])
             self.weights[-1][i] += self.learning_rate*node_error_term
@@ -316,10 +323,6 @@ class AIPlayer(Player):
             node_error = error_terms[i] * self.weights[i][self.num_inputs]
             node_error_term = node_error * self.dsigmoid(all_sums[i])
             self.weights[i][self.num_inputs] += self.learning_rate*node_error_term
-
-
-
-
 
 
     def grow(self,temp,depth2):
@@ -429,14 +432,23 @@ class AIPlayer(Player):
             rating-=30
         if(getAntAt(cur,self.myFood[1])!=None):
             rating-=30
+            
         rating+=(self.workersWanted-abs(len(workers)-self.workersWanted))*1500 #adds points for the right number of workers
         #print(rating)
-        if(rating>=999000):
+        if(rating>self.utilBins[0]):
+            self.utilBins[0]=rating
+        if(rating<self.utilBins[1]):
+            self.utilBins[1]=rating
+        self.utilBins[2]=(self.utilBins[2]*self.ticks+rating)/(self.ticks+1)
+        
+        if(rating>=9990):
             return .999
-        if(rating<=-999000):
+        if(rating<=-9990):
             return -.999
         #print(str(rating))
-        return rating/1000000 #make this point system between -1 and 1
+        #if(self.ticks%1000==0):
+        #    print(str(self.utilBins[0])+","+str(self.utilBins[1])+","+str(self.utilBins[2]))
+        return (rating+10000)/20000 #make this point system between 0 and 1
     ##
     #getAttack
     #
@@ -458,12 +470,12 @@ class AIPlayer(Player):
         for weightL in self.weights:
             toPrint=""
             for indWeight in weightL:
-                toPrint=toPrint+","+self.get3DecString(indWeight)
+                toPrint=toPrint+","+str(round(indWeight,7))
             print(toPrint)
         print("")
 
     def get3DecString(self, init):
         toRet=""
-        temp=1000*init
+        temp=10000000*init
         toRet=str(int(init))+"."
-        return toRet+str(int(temp%1000))
+        return toRet+str(int(temp%10000000))

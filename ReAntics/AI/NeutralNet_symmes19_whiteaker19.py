@@ -43,7 +43,7 @@ class AIPlayer(Player):
 
 
     def __init__(self, inputPlayerId):
-        super(AIPlayer, self).__init__(inputPlayerId, "NeutralNet1")
+        super(AIPlayer, self).__init__(inputPlayerId, "NeuralNet1")
         #the coordinates of the agent's food and tunnel will be stored in these
         #variables (see getMove() below)
         self.utilBins=[-1000000,1000000,0]; #high,low,avg
@@ -54,10 +54,11 @@ class AIPlayer(Player):
         self.enemyAnthill=None
         self.enemyTunnel=None
         self.depth=2
+        self.ticks = 0
+        self.test()
         self.learning_rate = .005
         self.num_inputs = 26
         self.hidden_nodes = int((self.num_inputs) * (2/3))
-        self.ticks = 0
         self.inputs=[]
         for i in range(0,self.num_inputs):
             self.inputs.append(0)
@@ -73,8 +74,16 @@ class AIPlayer(Player):
         for i in range(0,self.hidden_nodes + 1):
             temp.append(random.uniform(-1,1))
         self.weights.append(temp)
-        self.registerWin(True)
+        #self.registerWin(True)
 
+    def test(self):
+        self.num_inputs=2
+        self.learning_rate=0.8
+        self.hidden_nodes=3
+        self.inputs=[0,1]
+        self.weights=[[.9,0,.5],[.2,-.4,.3],[0,-.8,-.3],[-.4,.1,-.1,0]]
+        self.backpropigation(1)
+        self.registerWin(True)
 
     ##
     #getPlacement
@@ -288,6 +297,7 @@ class AIPlayer(Player):
         p = self.propigate()
         all_outputs = p[0]
         all_sums = p[1]
+        #print(str(all_outputs[-1]))
 
         # calculate the error and error term for the output 
         output_error = eval - all_outputs[-1]
@@ -297,32 +307,26 @@ class AIPlayer(Player):
         #if self.ticks<10:
         #    self.registerWin(True)
         output_error_term = output_error * self.dsigmoid(all_sums[-1])
-
+        #print(str(output_error_term))
         error_terms = []
 
         # calculate the error and error term for each hidden Node
         for i in range(0, self.hidden_nodes):
-            #if self.ticks<1000 and i==0:
-            #    print(str(output_error_term)+" * "+str(self.weights[-1][i])+" * "+str(self.sigmoid(all_sums[i]))+" * "+str(self.learning_rate))
             node_error = output_error_term * self.weights[-1][i]
-            node_error_term = node_error * self.sigmoid(all_sums[i])
-            self.weights[-1][i] += self.learning_rate*node_error_term
+            node_error_term = node_error * self.dsigmoid(all_sums[i])
+            self.weights[-1][i] += self.learning_rate*output_error_term*all_outputs[i]
             error_terms.append(node_error_term)
 
         # adjust the bias on the output node
         node_error = output_error_term * self.weights[-1][self.hidden_nodes]
         node_error_term = node_error * self.dsigmoid(all_sums[-1])
-        self.weights[-1][self.hidden_nodes] += self.learning_rate*node_error_term
+        self.weights[-1][self.hidden_nodes] += self.learning_rate*output_error_term
 
         for i in range(0, self.hidden_nodes):
             for j in range(0, self.num_inputs):
-                node_error = error_terms[i] * self.weights[i][j]
-                node_error_term = node_error * self.dsigmoid(all_sums[i])
-                self.weights[i][j] += self.learning_rate*node_error_term*self.inputs[j]
+                self.weights[i][j] += self.learning_rate*error_terms[i]*self.inputs[j]
             # adjust the bias
-            node_error = error_terms[i] * self.weights[i][self.num_inputs]
-            node_error_term = node_error * self.dsigmoid(all_sums[i])
-            self.weights[i][self.num_inputs] += self.learning_rate*node_error_term
+            self.weights[i][self.num_inputs] += self.learning_rate*error_terms[i]
 
 
     def grow(self,temp,depth2):

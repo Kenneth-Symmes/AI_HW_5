@@ -56,7 +56,7 @@ class AIPlayer(Player):
         self.depth=2
         self.ticks = 0
         self.test()
-        self.learning_rate = .5
+        self.learning_rate = 10
         self.num_inputs = 27
         self.hidden_nodes = int((self.num_inputs) * (2/3))
         self.inputs=[]
@@ -302,7 +302,7 @@ class AIPlayer(Player):
         all_sums = p[1]
         #print(str(all_outputs[-1]))
 
-        # calculate the error and error term for the output 
+        # calculate the error and error term for the output
         output_error = eval - all_outputs[-1]
         self.ticks += 1
         #if self.ticks % 10000 == 0:
@@ -450,9 +450,9 @@ class AIPlayer(Player):
             rating-=30
         if(getAntAt(cur,self.myFood[1])!=None):
             rating-=30
-            
+
         rating+=(self.workersWanted-abs(len(workers)-self.workersWanted))*1500 #adds points for the right number of workers
-        
+
         if(rating>=9990):
             return .999
         if(rating<=-9990):

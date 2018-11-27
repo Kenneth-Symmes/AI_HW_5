@@ -46,7 +46,7 @@ class AIPlayer(Player):
         super(AIPlayer, self).__init__(inputPlayerId, "NeuralNet1")
         #the coordinates of the agent's food and tunnel will be stored in these
         #variables (see getMove() below)
-        self.utilBins=[-1000000,1000000,0]; #high,low,avg
+        self.me=-1
         self.myFood = None
         self.myTunnel = None
         self.myAnthill=None
@@ -56,8 +56,8 @@ class AIPlayer(Player):
         self.depth=2
         self.ticks = 0
         self.test()
-        self.learning_rate = .005
-        self.num_inputs = 26
+        self.learning_rate = .5
+        self.num_inputs = 27
         self.hidden_nodes = int((self.num_inputs) * (2/3))
         self.inputs=[]
         for i in range(0,self.num_inputs):
@@ -139,7 +139,8 @@ class AIPlayer(Player):
     #
     ##
     def getMove(self, currentState):
-        me=currentState.whoseTurn
+        self.me=currentState.whoseTurn
+        me=self.me
         if(self.myFood==None):
             self.myFood=getCurrPlayerFood(self,currentState)
             self.myFood[0]=self.myFood[0].coords
@@ -164,7 +165,7 @@ class AIPlayer(Player):
         self.backpropigation(initUtil)
 
     def setInputs(self,cur):
-        me=cur.whoseTurn
+        me=self.me
         myInv=-1
         eInv=-1
         workers=getAntList(cur, me, (WORKER,))
@@ -179,9 +180,11 @@ class AIPlayer(Player):
         if(cur.whoseTurn==me):
             myInv=getCurrPlayerInventory(cur)
             eInv=getEnemyInv(self,cur)
+            self.inputs[26]=1
         else:
             eInv=getCurrPlayerInventory(cur)
             myInv=getEnemyInv(self,cur)
+            self.inputs[26]=0
 
         self.inputs[0]=myInv.foodCount/11; #ourFoodCount 0-1
         self.inputs[1]=eInv.foodCount/11; #enemyFoodCount 0-1
@@ -360,15 +363,26 @@ class AIPlayer(Player):
                 highest[0]=last.move
 
     def getUtil(self,cur):
-        if(random.randint(0,10000)==0): #randomly can say this is a good move
-            return 1.0
-        myInv=getCurrPlayerInventory(cur)
-        me=cur.whoseTurn
+        #if(random.randint(0,10000)==0): #randomly can say this is a good move
+        #    return 1.0
+        myInv=-1
+        eInv=-1
+        me=self.me
+        rating=0
+        if(cur.whoseTurn==me):
+            myInv=getCurrPlayerInventory(cur)
+            eInv=getEnemyInv(self,cur)
+            self.inputs[26]=1
+            rating+=500
+        else:
+            eInv=getCurrPlayerInventory(cur)
+            myInv=getEnemyInv(self,cur)
+            self.inputs[26]=0
         #if(getWinner(cur)==me):
         #    return 1.0
         #elif(getWinner(cur)==1-me):
         #    return -1.0
-        rating=140*(myInv.foodCount) # 140 points per food
+        rating+=140*(myInv.foodCount) # 140 points per food
         workers=getAntList(cur, me, (WORKER,))
         enemyQueen=getAntList(cur,1-me,(QUEEN,))
         enemyWorkers=getAntList(cur,1-me,(WORKER,))
@@ -438,12 +452,6 @@ class AIPlayer(Player):
             rating-=30
             
         rating+=(self.workersWanted-abs(len(workers)-self.workersWanted))*1500 #adds points for the right number of workers
-        #print(rating)
-        if(rating>self.utilBins[0]):
-            self.utilBins[0]=rating
-        if(rating<self.utilBins[1]):
-            self.utilBins[1]=rating
-        self.utilBins[2]=(self.utilBins[2]*self.ticks+rating)/(self.ticks+1)
         
         if(rating>=9990):
             return .999
@@ -471,11 +479,19 @@ class AIPlayer(Player):
 
     def printWeights(self):
         print("Printing Weights:")
+        toPrint="["
         for weightL in self.weights:
-            toPrint=""
+            if(toPrint=="["):
+                toPrint=toPrint+"["
+            else:
+                toPrint=toPrint+",["
             for indWeight in weightL:
-                toPrint=toPrint+","+str(round(indWeight,7))
-            print(toPrint)
+                if(toPrint[len(toPrint)-1]=="["):
+                    toPrint=toPrint+str(round(indWeight,7))
+                else:
+                    toPrint=toPrint+","+str(round(indWeight,7))
+            toPrint=toPrint+"]"
+        print(toPrint+"]")
         print("")
 
     def get3DecString(self, init):
